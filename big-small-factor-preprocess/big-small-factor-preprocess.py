@@ -98,6 +98,9 @@ def industry_neutralization(factor_df: pd.DataFrame, factor_name):
 
     # 残差就是每个点到回归线的垂直距离 是一个size=x.shape的数组
     # 残差能当做标准差的原因是 残差就是点偏离期望(线性方程)的距离 和标准差的意义一样
+    # 参差其实就是高斯分布取对数的表现形式
+    # 设定市值和行业为自变量、因子值为因变量进行回归，得到的"残差"其实就是因子值中去除了市值和行业影响之后的部分：换句话说，这部分因子值并不会因为市值或行业的变动而变动
+    # y = β0 + β1 * x + varepsilon 的本质就是对x和y中性化 varepilon的分布和xy就没关系了(正态分布)
     return result.resid
 
 # pd.get_dummies: 分类数据转换为二进制矩阵
