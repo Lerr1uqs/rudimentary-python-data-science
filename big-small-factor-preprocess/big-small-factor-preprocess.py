@@ -6,7 +6,7 @@ import warnings
 # warnings.simplefilter(action="ignore", category=Warning)
 
 
-trading_data_2019 = pd.read_csv('2019_trading_data.csv')
+trading_data_2019 = pd.read_csv('assets/2019_trading_data.csv')
 print(trading_data_2019)
 sub_trading_data = trading_data_2019.query("data_date=='2019-05-27'")
 sub_trading_data['mv'].hist(bins=100, figsize=(18, 9))
