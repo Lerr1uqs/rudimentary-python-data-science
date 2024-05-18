@@ -11,7 +11,7 @@ with open(TOKEN_PATH, 'r') as f:
     ts.set_token(token)
     pro = ts.pro_api()
 
-START = "20180401"
+START = "20170401"
 END   = "20240430"
 TICKER = "002367.SZ"
 if len(sys.argv) > 1:
@@ -85,6 +85,7 @@ balancesheet: pd.DataFrame = pro.balancesheet(
         "total_nca",        # 非流动资产合计 Total Non-Current Assets
         "total_liab",       # 负债合计
         "inventories",      # 存货
+        "money_cap",        # 货币资金
     ])
 )
 
@@ -96,9 +97,16 @@ fina_table["end_date"] = pd.to_datetime(fina_table["end_date"])
 fina_table.sort_values("end_date", inplace=True)
 fina_table.reset_index(drop=True, inplace=True)
 
+if fina_table.empty:
+    print("[!] fina_table is empty")
+    sys.exit(1)
+
 fina_table["ca/liab"] = fina_table["total_cur_assets"] / fina_table["total_liab"] # current assets / liabilities
 # current assets without inventories(房地产存货很多)
 fina_table["cawi/liab"] = (fina_table["total_cur_assets"] - fina_table["inventories"]) / fina_table["total_liab"] 
+
+# 现金在流动资产的占比
+fina_table["cash/ca"] = fina_table["money_cap"] / fina_table["total_cur_assets"]
 
 fina_table["n_income_attr_p_diff"] = 0.0
 
@@ -170,14 +178,17 @@ fina_table["returns"] = fina_table["rof"] * fina_table["total_nca"] / fina_table
 # print(fina_table[["end_date", "inventories", "total_cur_assets", "total_nca", "total_liab", "cawi/liab", "total_mv", "rof", "assets_market_value"]])
 # print(fina_table)
 from typing import List
-def convert_to_decimal(df: pd.DataFrame, cols: List[str]) -> pd.DataFrame:
+def convert_to_percentage(df: pd.DataFrame, cols: List[str]) -> pd.DataFrame:
 
     cloned = df.copy()
     
     def cvt(s: pd.Series) -> pd.Series:
         r = []
         for i in s:
-            r.append(f"{i:.2%}")
+            if str(i) == "nan":
+                r.append("NaN")
+            else:
+                r.append(f"{i:.2%}")
         return pd.Series(r)
 
     for c in cols:
@@ -190,9 +201,13 @@ fina_table["roe"] = fina_table["roe"] / 100
 fina_table["roa"] = fina_table["roa"] / 100
 fina_table.reset_index(drop=True, inplace=True)
 
-fina_table_cloned = convert_to_decimal(fina_table, ["roe", "roa", "rof", "returns"])
+# 滚动ROF
+fina_table["rolling-rof"] = fina_table["rof"].rolling(window=4, min_periods=1).mean()
+
+fina_table_cloned = convert_to_percentage(fina_table, ["roe", "roa", "rof", "rolling-rof", "returns"])
+
 # print(fina_table[["end_date", "ca/liab", "cawi/liab", "roe", "roa", "rof", "returns"]])
-print(fina_table_cloned[["end_date", "ca/liab", "cawi/liab", "roe", "roa", "rof", "returns"]])
+print(fina_table_cloned[["end_date", "ca/liab", "cawi/liab", "cash/ca", "roe", "roa", "rolling-rof", "rof", "returns"]])
 
 current_assets_mv = current_market_value - (fina_table["total_cur_assets"].iloc[-1] - fina_table["total_liab"].iloc[-1])
 current_returns = fina_table["rof"].iloc[-1] * fina_table["total_nca"].iloc[-1] / current_assets_mv
